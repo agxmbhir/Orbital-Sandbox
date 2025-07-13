@@ -59,5 +59,3 @@ netlify deploy --dir=dist
 ```
 
 ---
-
-Enjoy sharing your Orbital AMM playground! 🚀

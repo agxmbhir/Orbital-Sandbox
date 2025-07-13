@@ -7,7 +7,7 @@ COPY web .
 RUN npm run build
 
 # --- Backend build stage ----------------------------------------------------
-FROM rust:1.73-alpine AS backend-build
+FROM rust:alpine AS backend-build
 WORKDIR /app
 RUN apk add --no-cache musl-dev clang llvm make
 COPY --from=web-build /web/dist ./web/dist
@@ -19,7 +19,7 @@ RUN cargo build --release
 FROM alpine:3.18
 WORKDIR /app
 COPY --from=backend-build /app/orbital/target/release/orbital ./orbital
-COPY --from=backend-build /app/orbital/web/dist ./web/dist
+COPY --from=backend-build /app/web/dist ./web/dist
 # The server binds to PORT env or 8080 by default
 ENV PORT=8080
 EXPOSE 8080
