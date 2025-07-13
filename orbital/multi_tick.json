@@ -1,0 +1,27 @@
+{
+  "ticks": [
+    {
+      "sphere_amm": {
+        "radius": 3385.6406460551016,
+        "reserves": [
+          800.0,
+          1200.0
+        ],
+        "token_names": [
+          "USDC",
+          "USDT"
+        ]
+      },
+      "plane_constant": 600.0,
+      "lp_shares": {}
+    }
+  ],
+  "global_reserves": [
+    800.0,
+    1200.0
+  ],
+  "token_names": [
+    "USDC",
+    "USDT"
+  ]
+}

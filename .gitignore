@@ -1,0 +1,24 @@
+# --- Rust --------------------------------------------------------------
+/target/
+**/*.rs.bk
+
+# Cargo local packages
+Cargo.lock
+
+# --- Node / React ------------------------------------------------------
+/web/node_modules/
+/web/dist/
+
+# Vite cache
+/web/.vite
+
+# --- Editor / OS clutter ---------------------------------------------
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# --- Misc -------------------------------------------------------------
+*.log
+npm-debug.log*
+.env

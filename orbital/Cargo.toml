@@ -1,0 +1,18 @@
+[package]
+name = "orbital"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+num-bigint = "0.4"
+num-rational = "0.4"
+decimal = "2.0"
+ratatui = "0.23"
+crossterm = "0.27"
+actix-web = "4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+actix-files = "0.6"
+actix-cors = "0.6"
