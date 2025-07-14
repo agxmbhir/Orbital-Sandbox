@@ -23,4 +23,5 @@ COPY --from=backend-build /app/web/dist ./web/dist
 # The server binds to PORT env or 8080 by default
 ENV PORT=8080
 EXPOSE 8080
-CMD ["/app/orbital", "server", "--port", "8080"] 
+# Allow Render (or others) to inject PORT; default 8080
+CMD ["/bin/sh", "-c", "./orbital server --addr 0.0.0.0 --port ${PORT:-8080}"] 
