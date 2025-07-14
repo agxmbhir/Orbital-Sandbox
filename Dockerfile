@@ -23,4 +23,4 @@ COPY --from=backend-build /app/web/dist ./web/dist
 # The server binds to PORT env or 8080 by default
 ENV PORT=8080
 EXPOSE 8080
-CMD ["/app/orbital", "serve", "--port", "8080"] 
+CMD ["/app/orbital", "server", "--port", "8080"] 
