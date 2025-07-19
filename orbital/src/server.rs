@@ -4,6 +4,7 @@ use actix_cors::Cors;
 use actix_web::{ get, post, web, App, HttpResponse, HttpServer, Responder, middleware::Logger };
 use serde::{ Deserialize, Serialize };
 use crate::ticks::MultiTickAMM;
+use actix_files as fs;
 
 pub async fn run(
     addr: &str,
@@ -50,6 +51,9 @@ pub async fn run(
             .service(remove_liquidity)
             .service(get_price_single)
             .service(reconfigure_amm)
+            .service(
+                fs::Files::new("/", "../web/dist").index_file("index.html").show_files_listing()
+            )
     })
         .bind((addr, port))?
         .run().await

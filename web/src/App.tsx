@@ -32,7 +32,7 @@ interface State {
     tick_count: number;
 }
 
-const API_PREFIX = '/api';
+const API_PREFIX = window.location.hostname === 'localhost' ? 'http://localhost:8080/api' : '/api';
 
 const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
 
