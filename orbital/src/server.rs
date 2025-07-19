@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use actix_cors::Cors;
 use actix_web::{ get, post, web, App, HttpResponse, HttpServer, Responder, middleware::Logger };
 use serde::{ Deserialize, Serialize };
-use crate::ticks::MultiTickAMM;
+use crate::{
+    sphere::{ decompose_reserves, equal_price_point, generate_phase_data },
+    ticks::MultiTickAMM,
+};
 use actix_files as fs;
 
 // Helper function to safely get AMM from poisoned mutex
@@ -75,6 +78,7 @@ pub async fn run(
             .service(remove_liquidity)
             .service(get_price_single)
             .service(reconfigure_amm)
+            .service(get_phase_diagram)
             .service(
                 fs::Files::new("/", static_path_clone).index_file("index.html").show_files_listing()
             )
@@ -133,6 +137,40 @@ async fn get_state(amm: web::Data<Mutex<MultiTickAMM>>) -> impl Responder {
         global_reserves: state.global_reserves.clone(),
         tick_count: state.ticks.len(),
     };
+
+    HttpResponse::Ok().json(response)
+}
+#[get("/api/phase-diagram")]
+async fn get_phase_diagram(amm: web::Data<Mutex<MultiTickAMM>>) -> impl Responder {
+    let state = amm.lock().unwrap();
+
+    if state.ticks.is_empty() {
+        return HttpResponse::BadRequest().body("No ticks available");
+    }
+
+    let first_tick = &state.ticks[0];
+    let radius = first_tick.sphere_amm.radius;
+    let n_tokens = first_tick.sphere_amm.token_names.len();
+
+    let phase_data = generate_phase_data(radius, n_tokens, 50);
+    let equal_price = equal_price_point(radius, n_tokens);
+
+    let response =
+        serde_json::json!({
+        "phase_points": phase_data,
+        "equal_price_point": equal_price,
+        "radius": radius,
+        "current_ticks": state.ticks.iter().map(|tick| {
+            let (parallel, _) = decompose_reserves(&tick.sphere_amm.reserves);
+            serde_json::json!({
+                "parallel_magnitude": parallel,
+                "plane_constant": tick.plane_constant,
+                "reserves": tick.sphere_amm.reserves,
+                "is_interior": tick.is_interior(),
+                "is_boundary": tick.is_boundary()
+            })
+        }).collect::<Vec<_>>()
+    });
 
     HttpResponse::Ok().json(response)
 }

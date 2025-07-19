@@ -12,7 +12,7 @@ import {
     Tooltip,
     Legend,
 } from 'chart.js';
-
+import PhaseDiagram from './PhaseDiagram';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 interface TickInfo {
@@ -54,6 +54,7 @@ export default function App() {
     const [configReserves, setConfigReserves] = useState('');
     const [configPlane, setConfigPlane] = useState('600');
     const [showConfig, setShowConfig] = useState(false);
+    const [showPhaseDiagram, setShowPhaseDiagram] = useState(false);
 
     async function fetchState() {
         try {
@@ -279,28 +280,32 @@ export default function App() {
     };
 
     return (
-        <div style={{
-            fontFamily: 'system-ui, sans-serif',
-            maxWidth: '1200px',
-            margin: '0 auto',
-            padding: '20px',
-            backgroundColor: '#f8fafc'
-        }}>
-            <div style={{
-                backgroundColor: 'white',
-                padding: '24px',
-                borderRadius: '12px',
-                marginBottom: '20px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-                <h1 style={{ margin: '0 0 8px 0', color: '#1e293b', fontSize: '28px' }}>
-                    🌌 Orbital AMM Sandbox
-                </h1>
-                <p style={{ margin: 0, color: '#64748b' }}>
-                    Interactive multi-tick stablecoin AMM with sphere constraints
-                </p>
-            </div>
+        <div style={{ padding: 20, maxWidth: 1200, margin: '0 auto' }}>
+            <h1>Orbital Sandbox</h1>
 
+            {/* Add toggle button */}
+            <div style={{ marginBottom: 20 }}>
+                <button
+                    onClick={() => setShowPhaseDiagram(!showPhaseDiagram)}
+                    style={{
+                        padding: '8px 16px',
+                        backgroundColor: showPhaseDiagram ? '#007bff' : '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    {showPhaseDiagram ? 'Hide' : 'Show'} Phase Diagram
+                </button>
+            </div>
+            {/* Conditionally render phase diagram */}
+            {showPhaseDiagram && <PhaseDiagram />}
+
+            {/* Fix this line - change from data to reservesData */}
+            <Line data={reservesData} />
+
+            <h2 style={{ marginTop: 40 }}>Ticks</h2>
             {status && (
                 <div style={{
                     padding: '12px 16px',

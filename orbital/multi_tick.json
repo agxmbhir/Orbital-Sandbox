@@ -2,47 +2,56 @@
   "ticks": [
     {
       "sphere_amm": {
-        "radius": 3448.95788082818,
+        "radius": 3414.213562373095,
         "reserves": [
-          1000.0,
-          1500.0,
-          2000.0
+          1300.0,
+          733.363834736343
         ],
         "token_names": [
-          "USDC",
-          "USDT",
-          "AGAM"
+          "U",
+          "S"
         ]
       },
-      "plane_constant": 600.0,
+      "plane_constant": 50.0,
       "lp_shares": {}
     },
     {
       "sphere_amm": {
-        "radius": 2366.025403784439,
+        "radius": 3385.6406460551016,
         "reserves": [
-          1000.0,
-          1000.0,
-          1000.0
+          800.0,
+          1200.0
         ],
         "token_names": [
-          "USDC",
-          "USDT",
-          "AGAM"
+          "U",
+          "S"
         ]
       },
-      "plane_constant": 700.0,
+      "plane_constant": 100.0,
+      "lp_shares": {}
+    },
+    {
+      "sphere_amm": {
+        "radius": 3224.744871391589,
+        "reserves": [
+          1500.0,
+          500.0
+        ],
+        "token_names": [
+          "U",
+          "S"
+        ]
+      },
+      "plane_constant": 150.0,
       "lp_shares": {}
     }
   ],
   "global_reserves": [
-    2000.0,
-    2500.0,
-    3000.0
+    3600.0,
+    2433.363834736343
   ],
   "token_names": [
-    "USDC",
-    "USDT",
-    "AGAM"
+    "U",
+    "S"
   ]
 }

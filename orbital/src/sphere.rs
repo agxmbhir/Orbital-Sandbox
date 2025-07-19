@@ -13,7 +13,14 @@ pub struct SphereAMM {
     /// Human-readable token identifiers.
     pub token_names: Vec<String>,
 }
-
+#[derive(Serialize, Clone)]
+pub struct PhasePoint {
+    pub x1: f64,
+    pub x2: f64,
+    pub parallel_magnitude: f64,
+    pub distance_from_equilibrium: f64,
+    pub is_valid: bool,
+}
 impl SphereAMM {
     /// Construct a new SphereAMM from initial reserves. The radius is solved so
     /// that the invariant is satisfied at genesis.
@@ -154,6 +161,35 @@ impl SphereAMM {
 }
 
 /* ---------- Stand-alone math helpers ---------- */
+/// Generate phase space data for visualization
+pub fn generate_phase_data(radius: f64, n_tokens: usize, resolution: usize) -> Vec<PhasePoint> {
+    let mut points = Vec::new();
+    let eq_point = equal_price_point(radius, n_tokens);
+
+    // Generate points around the sphere surface
+    for i in 0..resolution {
+        for j in 0..resolution {
+            let theta = ((i as f64) / (resolution as f64)) * std::f64::consts::PI;
+            let phi = ((j as f64) / (resolution as f64)) * 2.0 * std::f64::consts::PI;
+
+            // Convert spherical to Cartesian (simplified for 2-token case)
+            let x1 = radius + radius * 0.3 * theta.cos() * phi.cos();
+            let x2 = radius + radius * 0.3 * theta.sin() * phi.sin();
+
+            let reserves = vec![x1, x2];
+            let (parallel_mag, _) = decompose_reserves(&reserves);
+
+            points.push(PhasePoint {
+                x1,
+                x2,
+                parallel_magnitude: parallel_mag,
+                distance_from_equilibrium: parallel_mag - eq_point,
+                is_valid: sphere_invariant(&reserves, radius).abs() < 1e-6,
+            });
+        }
+    }
+    points
+}
 
 /// Equal-price point q = r(1 − 1/√n)
 pub fn equal_price_point(radius: f64, n_tokens: usize) -> f64 {
@@ -175,6 +211,12 @@ pub fn sphere_invariant(reserves: &[f64], radius: f64) -> f64 {
     lhs - radius * radius
 }
 
+/// Calculate distance from equal-price equilibrium
+pub fn distance_from_equilibrium(reserves: &[f64], radius: f64) -> f64 {
+    let (parallel_mag, _) = decompose_reserves(reserves);
+    let eq_point = equal_price_point(radius, reserves.len());
+    parallel_mag - eq_point
+}
 /// Decompose reserves into components parallel and orthogonal to the vector
 /// v = (1, 1, …, 1)/√n.
 /// Returns `(parallel_magnitude, orthogonal_component)`.
