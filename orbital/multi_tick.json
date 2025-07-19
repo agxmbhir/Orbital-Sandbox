@@ -2,26 +2,47 @@
   "ticks": [
     {
       "sphere_amm": {
-        "radius": 3385.6406460551016,
+        "radius": 3448.95788082818,
         "reserves": [
-          800.0,
-          1200.0
+          1000.0,
+          1500.0,
+          2000.0
         ],
         "token_names": [
           "USDC",
-          "USDT"
+          "USDT",
+          "AGAM"
         ]
       },
       "plane_constant": 600.0,
       "lp_shares": {}
+    },
+    {
+      "sphere_amm": {
+        "radius": 2366.025403784439,
+        "reserves": [
+          1000.0,
+          1000.0,
+          1000.0
+        ],
+        "token_names": [
+          "USDC",
+          "USDT",
+          "AGAM"
+        ]
+      },
+      "plane_constant": 700.0,
+      "lp_shares": {}
     }
   ],
   "global_reserves": [
-    800.0,
-    1200.0
+    2000.0,
+    2500.0,
+    3000.0
   ],
   "token_names": [
     "USDC",
-    "USDT"
+    "USDT",
+    "AGAM"
   ]
 }

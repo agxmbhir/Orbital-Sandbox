@@ -6,6 +6,19 @@ use serde::{ Deserialize, Serialize };
 use crate::ticks::MultiTickAMM;
 use actix_files as fs;
 
+// Helper function to safely get AMM from poisoned mutex
+fn get_amm_safe(
+    amm_data: &web::Data<Mutex<MultiTickAMM>>
+) -> Result<std::sync::MutexGuard<MultiTickAMM>, String> {
+    match amm_data.lock() {
+        Ok(guard) => Ok(guard),
+        Err(poisoned) => {
+            eprintln!("Mutex was poisoned, recovering...");
+            Ok(poisoned.into_inner())
+        }
+    }
+}
+
 pub async fn run(
     addr: &str,
     port: u16,
@@ -80,7 +93,12 @@ struct TickInfo {
 
 #[get("/api/state")]
 async fn get_state(amm: web::Data<Mutex<MultiTickAMM>>) -> impl Responder {
-    let state = amm.lock().unwrap();
+    let state = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
     let tick_infos: Vec<TickInfo> = state.ticks
         .iter()
@@ -120,8 +138,14 @@ async fn reconfigure_amm(
     amm: web::Data<Mutex<MultiTickAMM>>,
     json: web::Json<ReconfigureReq>
 ) -> impl Responder {
-    let mut amm = amm.lock().unwrap();
+    let mut amm_guard = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
+    // Validation
     if json.initial_reserves.len() != json.token_names.len() {
         return HttpResponse::BadRequest().json(
             serde_json::json!({
@@ -131,12 +155,39 @@ async fn reconfigure_amm(
         );
     }
 
+    if json.token_names.is_empty() {
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({
+            "success": false,
+            "message": "At least one token is required"
+        })
+        );
+    }
+
+    if json.initial_reserves.iter().any(|&r| r < 0.0) {
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({
+            "success": false,
+            "message": "All reserves must be non-negative"
+        })
+        );
+    }
+
+    if json.initial_plane <= 0.0 {
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({
+            "success": false,
+            "message": "Plane constant must be positive"
+        })
+        );
+    }
+
     // Create completely new AMM with new configuration
-    *amm = MultiTickAMM::new(json.token_names.clone());
+    *amm_guard = MultiTickAMM::new(json.token_names.clone());
 
     // Add initial tick with specified configuration
-    amm.add_tick(json.initial_plane, json.initial_reserves.clone());
-    amm.save_state();
+    amm_guard.add_tick(json.initial_plane, json.initial_reserves.clone());
+    amm_guard.save_state();
 
     HttpResponse::Ok().json(
         serde_json::json!({
@@ -171,11 +222,16 @@ async fn post_trade(
     amm: web::Data<Mutex<MultiTickAMM>>,
     json: web::Json<TradeReq>
 ) -> impl Responder {
-    let mut amm = amm.lock().unwrap();
+    let mut amm_guard = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
-    match amm.route_trade(&json.from, &json.to, json.amount) {
+    match amm_guard.route_trade(&json.from, &json.to, json.amount) {
         Ok(output) => {
-            amm.save_state();
+            amm_guard.save_state();
             let response = TradeResponse {
                 output,
                 success: true,
@@ -211,9 +267,14 @@ async fn post_tick(
     amm: web::Data<Mutex<MultiTickAMM>>,
     json: web::Json<TickReq>
 ) -> impl Responder {
-    let mut amm = amm.lock().unwrap();
+    let mut amm_guard = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
-    if json.reserves.len() != amm.token_names.len() {
+    if json.reserves.len() != amm_guard.token_names.len() {
         return HttpResponse::BadRequest().json(
             serde_json::json!({
             "success": false,
@@ -222,8 +283,8 @@ async fn post_tick(
         );
     }
 
-    amm.add_tick(json.plane, json.reserves.clone());
-    amm.save_state();
+    amm_guard.add_tick(json.plane, json.reserves.clone());
+    amm_guard.save_state();
 
     HttpResponse::Ok().json(
         serde_json::json!({
@@ -242,7 +303,13 @@ struct PriceInfo {
 
 #[get("/api/prices")]
 async fn get_prices(amm: web::Data<Mutex<MultiTickAMM>>) -> impl Responder {
-    let state = amm.lock().unwrap();
+    let state = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
+
     let mut prices = Vec::new();
 
     for i in 0..state.token_names.len() {
@@ -292,9 +359,14 @@ async fn set_reserves(
     amm: web::Data<Mutex<MultiTickAMM>>,
     json: web::Json<SetReservesReq>
 ) -> impl Responder {
-    let mut amm = amm.lock().unwrap();
+    let mut amm_guard = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
-    if json.tick_index >= amm.ticks.len() {
+    if json.tick_index >= amm_guard.ticks.len() {
         return HttpResponse::BadRequest().json(
             serde_json::json!({
             "success": false,
@@ -303,7 +375,7 @@ async fn set_reserves(
         );
     }
 
-    if json.reserves.len() != amm.token_names.len() {
+    if json.reserves.len() != amm_guard.token_names.len() {
         return HttpResponse::BadRequest().json(
             serde_json::json!({
             "success": false,
@@ -312,8 +384,18 @@ async fn set_reserves(
         );
     }
 
+    // Validation
+    if json.reserves.iter().any(|&r| r < 0.0) {
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({
+            "success": false,
+            "message": "All reserves must be non-negative"
+        })
+        );
+    }
+
     // Directly set reserves and recalculate radius
-    let tick = &mut amm.ticks[json.tick_index];
+    let tick = &mut amm_guard.ticks[json.tick_index];
     tick.sphere_amm.reserves = json.reserves.clone();
 
     // Recalculate radius to maintain sphere constraint
@@ -339,7 +421,7 @@ async fn set_reserves(
         }
     };
 
-    amm.save_state();
+    amm_guard.save_state();
 
     HttpResponse::Ok().json(
         serde_json::json!({
@@ -354,9 +436,14 @@ async fn add_liquidity(
     amm: web::Data<Mutex<MultiTickAMM>>,
     json: web::Json<AddLiquidityReq>
 ) -> impl Responder {
-    let mut amm = amm.lock().unwrap();
+    let mut amm_guard = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
-    if json.tick_index >= amm.ticks.len() {
+    if json.tick_index >= amm_guard.ticks.len() {
         return HttpResponse::BadRequest().json(
             serde_json::json!({
             "success": false,
@@ -365,10 +452,10 @@ async fn add_liquidity(
         );
     }
 
-    let tick = &mut amm.ticks[json.tick_index];
+    let tick = &mut amm_guard.ticks[json.tick_index];
     match tick.add_liquidity(&json.lp_id, &json.amounts) {
         Ok(_) => {
-            amm.save_state();
+            amm_guard.save_state();
             HttpResponse::Ok().json(
                 serde_json::json!({
                 "success": true,
@@ -391,9 +478,14 @@ async fn remove_liquidity(
     amm: web::Data<Mutex<MultiTickAMM>>,
     json: web::Json<RemoveLiquidityReq>
 ) -> impl Responder {
-    let mut amm = amm.lock().unwrap();
+    let mut amm_guard = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
-    if json.tick_index >= amm.ticks.len() {
+    if json.tick_index >= amm_guard.ticks.len() {
         return HttpResponse::BadRequest().json(
             serde_json::json!({
             "success": false,
@@ -402,10 +494,10 @@ async fn remove_liquidity(
         );
     }
 
-    let tick = &mut amm.ticks[json.tick_index];
+    let tick = &mut amm_guard.ticks[json.tick_index];
     match tick.withdraw_liquidity(&json.lp_id, json.percentage) {
         Ok(withdrawn) => {
-            amm.save_state();
+            amm_guard.save_state();
             HttpResponse::Ok().json(
                 serde_json::json!({
                 "success": true,
@@ -429,7 +521,12 @@ async fn get_price_single(
     amm: web::Data<Mutex<MultiTickAMM>>,
     query: web::Query<HashMap<String, String>>
 ) -> impl Responder {
-    let state = amm.lock().unwrap();
+    let state = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
 
     let from = match query.get("from") {
         Some(f) => f,
@@ -464,16 +561,22 @@ async fn get_price_single(
 
 #[post("/api/reset")]
 async fn reset_state(amm: web::Data<Mutex<MultiTickAMM>>) -> impl Responder {
-    let mut amm = amm.lock().unwrap();
-    let token_names = amm.token_names.clone();
+    let mut amm_guard = match get_amm_safe(&amm) {
+        Ok(guard) => guard,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({"error": e}));
+        }
+    };
+
+    let token_names = amm_guard.token_names.clone();
 
     // Reset to fresh state
-    *amm = MultiTickAMM::new(token_names.clone());
+    *amm_guard = MultiTickAMM::new(token_names.clone());
 
     // Add default tick
     let default_reserves = vec![1000.0; token_names.len()];
-    amm.add_tick(600.0, default_reserves);
-    amm.save_state();
+    amm_guard.add_tick(600.0, default_reserves);
+    amm_guard.save_state();
 
     HttpResponse::Ok().json(
         serde_json::json!({
