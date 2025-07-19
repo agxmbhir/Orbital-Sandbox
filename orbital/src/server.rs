@@ -41,7 +41,18 @@ pub async fn run(
         amm.save_state();
         println!("Initialized with tick: plane={}, reserves={:?}", initial_plane, reserves);
     }
-
+    let static_path = if std::path::Path::new("./web/dist").exists() {
+        "./web/dist" // Docker/production path
+    } else if std::path::Path::new("../web/dist").exists() {
+        "../web/dist" // Local development path
+    } else {
+        return Err(
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Static files directory not found. Checked ./web/dist and ../web/dist"
+            )
+        );
+    };
     let amm_data = web::Data::new(Mutex::new(amm));
 
     println!("Server running at http://{}:{}", addr, port);
@@ -49,7 +60,7 @@ pub async fn run(
 
     HttpServer::new(move || {
         let cors = Cors::default().allow_any_origin().allow_any_method().allow_any_header();
-
+        let static_path_clone = static_path.to_string();
         App::new()
             .app_data(amm_data.clone())
             .wrap(cors)
@@ -65,7 +76,7 @@ pub async fn run(
             .service(get_price_single)
             .service(reconfigure_amm)
             .service(
-                fs::Files::new("/", "../web/dist").index_file("index.html").show_files_listing()
+                fs::Files::new("/", static_path_clone).index_file("index.html").show_files_listing()
             )
     })
         .bind((addr, port))?
